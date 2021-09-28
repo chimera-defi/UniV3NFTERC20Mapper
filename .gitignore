@@ -1,0 +1,13 @@
+node_modules
+.openzeppelin
+.env
+
+#Hardhat files
+cache
+artifacts
+
+secrets.js
+deploy_log.json
+logs.txt
+log.txt
+verify_attempt_log.json

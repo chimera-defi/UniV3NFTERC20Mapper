@@ -1,0 +1,50 @@
+{
+  "name": "hardhat-project",
+  "version": "1.0.0",
+  "devDependencies": {
+    "@chimera-defi/hardhat-framework": "git+https://github.com/chimera-defi/hardhat-framework.git",
+    "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@nomiclabs/hardhat-etherscan": "^2.1.5",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "@openzeppelin/hardhat-upgrades": "^1.10.0",
+    "chai": "^4.3.4",
+    "ethereum-waffle": "^3.4.0",
+    "ethers": "^5.4.6",
+    "hardhat": "^2.6.1",
+    "hardhat-abi-exporter": "^2.2.1",
+    "hardhat-contract-sizer": "^2.0.3",
+    "hardhat-deploy": "^0.7.11",
+    "hardhat-gas-reporter": "^1.0.4",
+    "prettier": "^2.3.1",
+    "prettier-plugin-solidity": "^1.0.0-beta.13",
+    "sol2uml": "^1.1.29",
+    "solhint": "^3.3.6",
+    "solhint-plugin-prettier": "^0.0.5"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.3.1",
+    "@openzeppelin/contracts-upgradeable": "^4.3.1"
+  },
+  "scripts": {
+    "setup_dirs": "mkdir flats || mkdir flattened",
+    "uml": "npx sol2uml ./flats",
+    "flat": "npx hardhat flat contracts/${CNAME} --output flats/${CNAME}",
+    "flatten": "npx hardhat flatten --remove-licenses ./contracts/sharedDeposit_v2.sol > flattened/sharedDeposit_v2_flat.sol",
+    "build": "npm run-script prettier ; npm run-script prettier:check ; npm run-script lint:sol ; npx hardhat compile",
+    "clean": "hardhat clean",
+    "clean_logs": "rm deploy_log.json && rm log.txt && rm verify_attempt_log.json",
+    "clean_all": "npm run-script clean || npm run-script clean_logs || rm -rf data || rm -rf cache || rm -rf flattened",
+    "rebuild": "npm run-script clean_all && npm run-script build",
+    "commit": "git-cz",
+    "compile": "hardhat compile",
+    "coverage": "hardhat coverage --solcoverjs ./.solcover.js --temp artifacts --testfiles \"./test/**/*.ts\"",
+    "deploy_prod_all": "npm run-script build && npx hardhat clean && npx hardhat run --network mainnet --verbose --show-stack-traces deploy/deploy_common_1.js",
+    "deploy": "hardhat deploy:Greeter",
+    "lint": "yarn run lint:sol && yarn run lint:ts && yarn run prettier:check",
+    "lint:sol": "solhint --config ./.solhint.json --max-warnings 50 \"contracts/**/*.sol\"",
+    "lint:ts": "eslint --config ./.eslintrc.yaml --ignore-path ./.eslintignore --ext .js,.ts .",
+    "prettier": "prettier --config ./.prettierrc.yaml --write \"**/*.{js,json,md,sol,ts}\"",
+    "prettier:check": "prettier --check --config ./.prettierrc.yaml \"**/*.{js,json,md,sol,ts}\"",
+    "test": "hardhat test"
+  }
+}
