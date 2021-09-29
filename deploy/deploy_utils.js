@@ -16,11 +16,11 @@ const ethLaunchNetworks = [
   'mainnet',
   'ropsten'
 ];
+
 const getGwei = (num) => ethers.utils.parseUnits(`${num}`, "gwei");
 
 // some behaviours need to be tested with a mainnet fork which behaves the same as mainnet
 const isMainnet = launchNetwork => launchNetwork == "localhost" || launchNetwork == "mainnet";
-
 
 const isEthereum = launchNetwork => ethLaunchNetworks.indexOf(launchNetwork) != -1;
 
@@ -250,6 +250,7 @@ class DeployHelper {
     this.multisig_address = multisig_address;
     this.signer = null;
   }
+
   async init() {
     let account = hre.config.networks[this.launchNetwork].accounts;
     let privkey = hre.config.networks[this.launchNetwork].accounts[0];
@@ -268,19 +269,24 @@ class DeployHelper {
       }`,
     );
   }
+
   async deployContract(name, ctrctName, args) {
     if (typeof args !== 'undefined' && (typeof args !== 'object' || !args.length)) args = [args];
     this.contracts[name] = await _deployContract(ctrctName, this.launchNetwork, args);
   }
+
   async deployInitializableContract(name, ctrctName, args) {
     this.contracts[name] = await _deployInitializableContract(ctrctName, this.launchNetwork, args);
   }
+
   addressOf(name) {
     return _getAddress(this.contracts[name]);
   }
+
   async getOverrides() {
     return await _getOverrides(this.launchNetwork);
   }
+
   async transact(tx, ...args) {
     let overrides = await this.getOverrides();
     log(`transact ${tx} ${overrides}, ${args.length}, ${[...args].length}`)
@@ -288,6 +294,7 @@ class DeployHelper {
     await trace.wait(); // throws on tx failure
     return trace;
   }
+
   async addContract(name, contractName, address, args) {
     this.contracts[name] = {
       contract: await loadContract(contractName, address, this.signer)
@@ -300,6 +307,7 @@ class DeployHelper {
       this.contracts[name].args = [];
     }
   }
+
   _log(msg) {
     log(msg);
   }
@@ -308,9 +316,11 @@ class DeployHelper {
   addDist(name, amount) {
     this.distribution[name] = amount;
   }
+
   getContract(name) {
     return _getContract(this.contracts, name);
   }
+
   async _checkEnoughTokensToDistribute(token) {
     let total = Object.values(this.distribution).reduce((a, b) => a.add(b));
     let diff = (await this.getContract(token).balanceOf(this.address)).sub(total);
@@ -321,11 +331,13 @@ class DeployHelper {
       }
     }
   }
+
   async sendTokens(contract, name, to, amount) {
     let res = await this.transact(contract.transfer, to, amount);
     log(`Tokens transferred: From ${contract.address} to ${name} at ${to} : ${amount}`);
     return res;
   }
+
   async distribute(token) {
     await this._checkEnoughTokensToDistribute(token);
     for (let name in this.distribution) {
@@ -337,7 +349,6 @@ class DeployHelper {
   async transferOwnershipToMultisig(name) {
     let to = this.multisig_address;
     let contract = this.getContract(name);
-
     let res = await this.transact(contract.transferOwnership, to);
     log(`Ownership transferred for ${name} at ${contract.address} to ${to}`);
     return res;
@@ -347,6 +358,7 @@ class DeployHelper {
       await this.transferOwnershipToMultisig(name);
     }
   }
+
   async verify() {
     await _verifyAll(this.contracts, this.launchNetwork);
   }
@@ -356,7 +368,6 @@ class DeployHelper {
     let finalBalance = await hre.ethers.provider.getBalance(this.address);
     let finalBlockTime = (await hre.ethers.provider.getBlock()).timestamp;
     let overrides = await this.getOverrides(this.launchNetwork);
-
     log(
       `Total cost of deploys: ${(this.initialBalance.sub(finalBalance)).toString()} with gas settings: ${JSON.stringify(
         overrides,
@@ -365,7 +376,6 @@ class DeployHelper {
     await this.verify();
   }
 }
-
 
 async function deployUsingClass(name, args) {
   let dh = new DeployHelper();
