@@ -1,5 +1,6 @@
   const hre = require("hardhat");
   const fs = require("fs");
+  const hhf = require("@chimera-defi/hardhat-framework");
   const { ethers } = hre;
 
   const log = txt => {
@@ -20,13 +21,22 @@
     return launchNetwork == "localhost" || launchNetwork == "mainnet";
   };
 
-  // const getExplorer = launchNetwork => {
-  //   let cid = await hre.getChainId();
-  //   // todo 
-  // }
+  const isEthereum = launchNetwork => {
+    return ethLaunchNetworks.indexOf(launchNetwork) != -1;
+  }
+
+  const getExplorer = () => {
+    let cid = await hre.getChainId();
+    let explorer = hhf.explorer(cid);
+    return explorer;
+  }
 
   const _getOverrides = async (launchNetwork = false) => {
-    if (launchNetwork && ethLaunchNetworks.indexOf(launchNetwork) == -1) return {};
+    if (launchNetwork && !isEthereum(launchNetwork)) {
+      let netConfig = hre.config.networks[launchNetwork];
+      if (netConfig.gasPrice) return {gasPrice: netConfig.gasPrice};
+      return {};
+    }
     // https://www.blocknative.com/gas-estimator
     const overridesForEIP1559 = {
       type: 2,
@@ -141,14 +151,22 @@
   const _postRun = (contracts, launchNetwork) => {
     log("\n\nDeployment finished. Contracts deployed: \n\n");
     let prefix = "https://";
-    if (!isMainnet(launchNetwork)) {
-      prefix += `${launchNetwork}.`;
+    if (getExplorer()) {
+      prefix = getExplorer();
+      prefix += '/address/'
+    } else {
+      if (isEthereum(launchNetwork)) {
+        if (!isMainnet(launchNetwork)) {
+          prefix += `${launchNetwork}.`;
+        }
+        prefix += "etherscan.io/address/";
+      }
     }
-    prefix += "etherscan.io/address/";
 
     Object.keys(contracts).map(k => {
-      let url = prefix + contracts[k].contract.address;
-      log(`${k} deployed to ${contracts[k].contract.address} at ${url} `);
+      let address =  contracts[k].contract.address;
+      let url = prefix + address;
+      log(`${k} deployed to ${address} at ${url} `);
     });
     fs.writeFileSync("deploy_log.json", JSON.stringify(contracts), { flag: "a" });
   };
