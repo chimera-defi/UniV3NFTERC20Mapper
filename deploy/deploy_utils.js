@@ -19,6 +19,8 @@ const isMainnet = launchNetwork => launchNetwork == "localhost" || launchNetwork
 
 const isEthereum = launchNetwork => ethLaunchNetworks.indexOf(launchNetwork) != -1;
 
+const isMatic = launchNetwork => launchNetwork == 'mumbai' || launchNetwork == 'matic';
+
 const getExplorer = async () => {
   let cid = await hre.getChainId();
   let explorer = hhf.explorer(cid);
@@ -45,6 +47,22 @@ const getMediumGas = async () => {
   return await getGasPrice(80);
 };
 
+const getGasViaZapper = async (network='polygon', type='instant') => {
+  let reqUrl = `https://api.zapper.fi/v1/gas-price?api_key=96e0cc51-a62e-42ca-acee-910ea7d2a241&network=${network}`;
+
+  let res = await got(reqUrl, {json: true});
+  return res.body[type];
+}
+
+const getGasViaPolygonscan = async () => {
+  let apikey = process.env.POLYGONSCAN_API;
+  let reqUrl = `https://api.polygonscan.com/api?module=gastracker&action=gasoracle&apikey=${apikey}`;
+
+  let res = await got(reqUrl, {json: true});
+  // return res.body.result['ProposeGasPrice'];
+  return res.body.result['FastGasPrice'];
+}
+
 const _getOverrides = async (launchNetwork = false) => {
   let netConfig = hre.config.networks[launchNetwork];
   console.log(netConfig, launchNetwork);
@@ -52,6 +70,14 @@ const _getOverrides = async (launchNetwork = false) => {
   if (launchNetwork && !isEthereum(launchNetwork)) {
     let netConfig = hre.config.networks[launchNetwork];
     if (typeof netConfig.gasPrice == "number") return {gasPrice: netConfig.gasPrice};
+    if (isMatic(launchNetwork)) {
+      let gp = await getGasViaPolygonscan();
+      console.log(gp);
+      if (gp < 100) gp = 100;
+      console.log(getGwei(gp));
+
+      return {gasPrice: getGwei(gp)}
+    }
     return {};
   }
   const overridesForEIP1559 = {
@@ -102,10 +128,19 @@ const _deployContract = async (name, launchNetwork = false, cArgs = []) => {
   log(`Attempting to deploy ${name} - ${cArgs?.length ? cArgs.join(",") : cArgs}`);
 
   const overridesForEIP1559 = await _getOverrides(launchNetwork);
+  console.log('step1')
   const factory = await hre.ethers.getContractFactory(name);
+  console.log('step2')
+
   const contract = await factory.deploy(...cArgs, overridesForEIP1559);
+  console.log('step3')
+
   await contract.deployTransaction.wait(1);
+  console.log('step4')
+
   await contract.deployed();
+  console.log('step5')
+
   log(`\nDeployed ${name} to ${contract.address} on ${launchNetwork} w/ args: ${cArgs.join(",")}`);
   return Promise.resolve({contract: contract, args: cArgs, initialized: false, srcName: name});
 };
@@ -119,7 +154,11 @@ function chunkArray(array, size) {
 
 const _verifyAll = async (allContracts, launchNetwork) => {
   log("starting _verifyAll");
-  if (!launchNetwork || ethLaunchNetworks.indexOf(launchNetwork) == -1) return;
+  if (!launchNetwork || (!isEthereum(launchNetwork) && !isMatic(launchNetwork))) return;
+  if (isMatic(launchNetwork)) {
+    // hot swap the etherscan api key
+    hre.config.etherscan.apiKey = process.env.POLYGONSCAN_API;
+  }
   log("Waiting 10s to make sure everything has propagated on etherscan");
   await new Promise(resolve => setTimeout(resolve, 20000));
   // wait 10s to make sure everything has propagated on etherscan
