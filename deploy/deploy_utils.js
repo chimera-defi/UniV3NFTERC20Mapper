@@ -1,59 +1,57 @@
 const hre = require("hardhat");
 const fs = require("fs");
 const hhf = require("@chimera-defi/hardhat-framework");
-const { ethers } = hre;
-const got = require('got');
+const {ethers} = hre;
+const got = require("got");
 
 const log = txt => {
   txt = txt + "\n";
   console.log(txt);
-  fs.writeFileSync("log.txt", txt, { flag: "a" });
+  fs.writeFileSync("log.txt", txt, {flag: "a"});
 };
 
-const ethLaunchNetworks = [
-  'rinkeby',
-  'goerli',
-  'mainnet',
-  'ropsten'
-];
+const ethLaunchNetworks = ["rinkeby", "goerli", "mainnet", "ropsten"];
 
-const getGwei = (num) => ethers.utils.parseUnits(`${num}`, "gwei");
+const getGwei = num => ethers.utils.parseUnits(`${num}`, "gwei");
 
 // some behaviours need to be tested with a mainnet fork which behaves the same as mainnet
 const isMainnet = launchNetwork => launchNetwork == "localhost" || launchNetwork == "mainnet";
 
 const isEthereum = launchNetwork => ethLaunchNetworks.indexOf(launchNetwork) != -1;
 
-const getExplorer = () => {
+const getExplorer = async () => {
   let cid = await hre.getChainId();
   let explorer = hhf.explorer(cid);
   return explorer;
-}
+};
 
-const getGasPrice = async (confidenceMin) => {
-  let url = 'https://api.blocknative.com/gasprices/blockprices';
+const getGasPrice = async confidenceMin => {
+  let url = "https://api.blocknative.com/gasprices/blockprices";
   let opts = {
-    'Authorization': process.env.BLOCKNATIVE,
-    json: true
-  }
+    Authorization: process.env.BLOCKNATIVE,
+    json: true,
+  };
   let res = await got(url, opts);
   let estimatedPrices = res.body.blockPrices[0].estimatedPrices.filter(obj => obj.confidence >= confidenceMin);
-  let lowest = estimatedPrices[estimatedPrices.length - 1]
+  let lowest = estimatedPrices[estimatedPrices.length - 1];
 
   return {
     maxPriorityFeePerGas: getGwei(lowest.maxPriorityFeePerGas),
-    maxFeePerGas: getGwei(lowest.maxFeePerGas)
-  }
-}
+    maxFeePerGas: getGwei(lowest.maxFeePerGas),
+  };
+};
 
 const getMediumGas = async () => {
   return await getGasPrice(80);
-}
+};
 
 const _getOverrides = async (launchNetwork = false) => {
+  let netConfig = hre.config.networks[launchNetwork];
+  console.log(netConfig, launchNetwork);
+
   if (launchNetwork && !isEthereum(launchNetwork)) {
     let netConfig = hre.config.networks[launchNetwork];
-    if (netConfig.gasPrice) return { gasPrice: netConfig.gasPrice };
+    if (typeof netConfig.gasPrice == "number") return {gasPrice: netConfig.gasPrice};
     return {};
   }
   const overridesForEIP1559 = {
@@ -62,18 +60,18 @@ const _getOverrides = async (launchNetwork = false) => {
     maxPriorityFeePerGas: getGwei(3),
     gasLimit: 10000000,
   };
-  if (launchNetwork == 'mainnet') {
-    let {
-      maxFeePerGas,
-      maxPriorityFeePerGas
-    } = await getMediumGas();
+  if (launchNetwork == "mainnet") {
+    let {maxFeePerGas, maxPriorityFeePerGas} = await getMediumGas();
     overridesForEIP1559.maxFeePerGas = maxFeePerGas;
     overridesForEIP1559.maxPriorityFeePerGas = maxPriorityFeePerGas;
   } else {
     const gasPrice = await hre.ethers.provider.getGasPrice();
     overridesForEIP1559.maxFeePerGas = gasPrice;
   }
-  if (overridesForEIP1559.maxFeePerGas.lt(overridesForEIP1559.maxPriorityFeePerGas)) overridesForEIP1559.maxPriorityFeePerGas = overridesForEIP1559.maxFeePerGas.sub(1);
+  if (overridesForEIP1559.maxFeePerGas.lt(overridesForEIP1559.maxPriorityFeePerGas))
+    overridesForEIP1559.maxPriorityFeePerGas = overridesForEIP1559.maxFeePerGas.sub(1);
+
+  console.log(overridesForEIP1559);
   return overridesForEIP1559;
 };
 
@@ -100,13 +98,16 @@ const _verify = async (contract, launchNetwork, cArgs) => {
 };
 
 const _deployContract = async (name, launchNetwork = false, cArgs = []) => {
+  if (typeof cArgs !== "undefined" && (typeof cArgs !== "object" || !cArgs.length)) cArgs = [cArgs];
+  log(`Attempting to deploy ${name} - ${cArgs?.length ? cArgs.join(",") : cArgs}`);
+
   const overridesForEIP1559 = await _getOverrides(launchNetwork);
   const factory = await hre.ethers.getContractFactory(name);
   const contract = await factory.deploy(...cArgs, overridesForEIP1559);
   await contract.deployTransaction.wait(1);
   await contract.deployed();
-  log(`\nDeployed ${name} to ${contract.address} on ${launchNetwork} w/ args: ${cArgs.join(',')}`);
-  return Promise.resolve({ contract: contract, args: cArgs, initialized: false, srcName: name });
+  log(`\nDeployed ${name} to ${contract.address} on ${launchNetwork} w/ args: ${cArgs.join(",")}`);
+  return Promise.resolve({contract: contract, args: cArgs, initialized: false, srcName: name});
 };
 
 function chunkArray(array, size) {
@@ -159,14 +160,14 @@ const _verifyAll = async (allContracts, launchNetwork) => {
 
 const _deployInitializableContract = async (name, launchNetwork = false, initArgs = []) => {
   const overridesForEIP1559 = await _getOverrides(launchNetwork);
-  const { contract, _ } = await _deployContract(name, launchNetwork, []);
+  const {contract, _} = await _deployContract(name, launchNetwork, []);
   if (initArgs.length > 0) {
     await contract.initialize(...initArgs, overridesForEIP1559);
   } else {
     await contract.initialize(initArgs, overridesForEIP1559);
   }
   log(`Initialized ${name} with ${initArgs.toString()} \n`);
-  return Promise.resolve({ contract: contract, args: initArgs, initialized: true, srcName: name });
+  return Promise.resolve({contract: contract, args: initArgs, initialized: true, srcName: name});
 };
 
 const _getAddress = obj => {
@@ -175,12 +176,13 @@ const _getAddress = obj => {
     : obj.contract.address;
 };
 
-const _postRun = (contracts, launchNetwork) => {
+const _postRun = async (contracts, launchNetwork) => {
   log("\n\nDeployment finished. Contracts deployed: \n\n");
   let prefix = "https://";
-  if (getExplorer()) {
-    prefix = getExplorer();
-    prefix += '/address/'
+  let explorer = await getExplorer();
+  if (explorer) {
+    prefix = explorer;
+    prefix += "/address/";
   } else {
     if (isEthereum(launchNetwork)) {
       if (!isMainnet(launchNetwork)) {
@@ -195,7 +197,7 @@ const _postRun = (contracts, launchNetwork) => {
     let url = prefix + address;
     log(`${k} deployed to ${address} at ${url} `);
   });
-  fs.writeFileSync("deploy_log.json", JSON.stringify(contracts), { flag: "a" });
+  fs.writeFileSync("deploy_log.json", JSON.stringify(contracts), {flag: "a"});
 };
 
 const _sendTokens = async (contract, name, to, amount) => {
@@ -212,7 +214,7 @@ const _transferOwnership = async (name, contract, to) => {
 
 const _transact = async (tx, ...args) => {
   if (!overrides) overrides = await _getOverrides();
-  console.log(overrides, args.length, [...args].length)
+  console.log(overrides, args.length, [...args].length);
   let trace = await tx(...args, overrides);
   await trace.wait(); // throws on tx failure
   return trace;
@@ -240,6 +242,22 @@ async function loadContract(name, address, signer) {
   return new ethers.Contract(address, abi, signer);
 }
 
+async function generateJSONListForAutoUI(contracts) {
+  let res = {};
+  let cid = await hre.getChainId();
+  Object.keys(contracts).forEach(name => {
+    res[name] = {
+      TITLE: name,
+      LOGO: "🏆🚀",
+      ABI: name,
+      VAULT_TYPE: "experimental",
+      ADDR: _getAddress(contracts[name]),
+      CHAIN_ID: cid,
+    };
+  });
+  return res;
+}
+
 class DeployHelper {
   constructor(multisig_address) {
     this.contracts = {};
@@ -254,8 +272,8 @@ class DeployHelper {
   async init() {
     let account = hre.config.networks[this.launchNetwork].accounts;
     let privkey = hre.config.networks[this.launchNetwork].accounts[0];
-    if (typeof account == 'object' && account.mnemonic) {
-      privkey = ethers.Wallet.fromMnemonic(account.mnemonic).privateKey
+    if (typeof account == "object" && account.mnemonic) {
+      privkey = ethers.Wallet.fromMnemonic(account.mnemonic).privateKey;
     }
     this.signer = new hre.ethers.Wallet(privkey, hre.ethers.provider);
     this.address = this.signer.address;
@@ -265,13 +283,13 @@ class DeployHelper {
     this.initialBalance = await hre.ethers.provider.getBalance(this.address);
     this.currentBlockTime = (await hre.ethers.provider.getBlock()).timestamp;
     log(
-      `Initial balance of deployer at ${this.address} is: ${this.initialBalance.toString()} at block timestamp : ${this.currentBlockTime
+      `Initial balance of deployer at ${this.address} is: ${this.initialBalance.toString()} at block timestamp : ${
+        this.currentBlockTime
       }`,
     );
   }
 
-  async deployContract(name, ctrctName, args) {
-    if (typeof args !== 'undefined' && (typeof args !== 'object' || !args.length)) args = [args];
+  async deployContract(name, ctrctName, args = []) {
     this.contracts[name] = await _deployContract(ctrctName, this.launchNetwork, args);
   }
 
@@ -289,7 +307,7 @@ class DeployHelper {
 
   async transact(tx, ...args) {
     let overrides = await this.getOverrides();
-    log(`transact ${tx} ${overrides}, ${args.length}, ${[...args].length}`)
+    log(`transact ${tx} ${overrides}, ${args.length}, ${[...args].length}`);
     let trace = await tx(...args, overrides);
     await trace.wait(); // throws on tx failure
     return trace;
@@ -297,8 +315,8 @@ class DeployHelper {
 
   async addContract(name, contractName, address, args) {
     this.contracts[name] = {
-      contract: await loadContract(contractName, address, this.signer)
-    }
+      contract: await loadContract(contractName, address, this.signer),
+    };
     if (args.length > 0) {
       this.contracts[name].initialized = false;
       this.contracts[name].args = args;
@@ -364,16 +382,17 @@ class DeployHelper {
   }
 
   async postRun() {
-    _postRun(this.contracts, this.launchNetwork);
+    await _postRun(this.contracts, this.launchNetwork);
     let finalBalance = await hre.ethers.provider.getBalance(this.address);
     let finalBlockTime = (await hre.ethers.provider.getBlock()).timestamp;
     let overrides = await this.getOverrides(this.launchNetwork);
     log(
-      `Total cost of deploys: ${(this.initialBalance.sub(finalBalance)).toString()} with gas settings: ${JSON.stringify(
+      `Total cost of deploys: ${this.initialBalance.sub(finalBalance).toString()} with gas settings: ${JSON.stringify(
         overrides,
       )}. Took ${finalBlockTime - this.currentBlockTime} seconds`,
     );
     await this.verify();
+    log(JSON.stringify(await generateJSONListForAutoUI(this.contracts)));
   }
 }
 
@@ -409,5 +428,5 @@ module.exports = {
   _getContract: _getContract,
   advanceTimeAndBlock: advanceTimeAndBlock,
   DeployHelper: DeployHelper,
-  deploySingleContract: deploySingleContract
+  deploySingleContract: deploySingleContract,
 };
