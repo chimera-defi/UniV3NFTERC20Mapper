@@ -65,17 +65,13 @@ const getGasViaPolygonscan = async () => {
 
 const _getOverrides = async (launchNetwork = false) => {
   let netConfig = hre.config.networks[launchNetwork];
-  console.log(netConfig, launchNetwork);
 
   if (launchNetwork && !isEthereum(launchNetwork)) {
     let netConfig = hre.config.networks[launchNetwork];
     if (typeof netConfig.gasPrice == "number") return {gasPrice: netConfig.gasPrice};
     if (isMatic(launchNetwork)) {
       let gp = await getGasViaPolygonscan();
-      console.log(gp);
       if (gp < 100) gp = 100;
-      console.log(getGwei(gp));
-
       return {gasPrice: getGwei(gp)};
     }
     return {};
@@ -97,7 +93,6 @@ const _getOverrides = async (launchNetwork = false) => {
   if (overridesForEIP1559.maxFeePerGas.lt(overridesForEIP1559.maxPriorityFeePerGas))
     overridesForEIP1559.maxPriorityFeePerGas = overridesForEIP1559.maxFeePerGas.sub(1);
 
-  console.log(overridesForEIP1559);
   return overridesForEIP1559;
 };
 
@@ -128,18 +123,10 @@ const _deployContract = async (name, launchNetwork = false, cArgs = []) => {
   log(`Attempting to deploy ${name} - ${cArgs?.length ? cArgs.join(",") : cArgs}`);
 
   const overridesForEIP1559 = await _getOverrides(launchNetwork);
-  console.log("step1");
   const factory = await hre.ethers.getContractFactory(name);
-  console.log("step2");
-
   const contract = await factory.deploy(...cArgs, overridesForEIP1559);
-  console.log("step3");
-
   await contract.deployTransaction.wait(1);
-  console.log("step4");
-
   await contract.deployed();
-  console.log("step5");
 
   log(`\nDeployed ${name} to ${contract.address} on ${launchNetwork} w/ args: ${cArgs.join(",")}`);
   return Promise.resolve({contract: contract, args: cArgs, initialized: false, srcName: name});
@@ -253,7 +240,6 @@ const _transferOwnership = async (name, contract, to) => {
 
 const _transact = async (tx, ...args) => {
   if (!overrides) overrides = await _getOverrides();
-  console.log(overrides, args.length, [...args].length);
   let trace = await tx(...args, overrides);
   await trace.wait(); // throws on tx failure
   return trace;
