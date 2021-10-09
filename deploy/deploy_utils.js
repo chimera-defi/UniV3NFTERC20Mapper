@@ -19,7 +19,7 @@ const isMainnet = launchNetwork => launchNetwork == "localhost" || launchNetwork
 
 const isEthereum = launchNetwork => ethLaunchNetworks.indexOf(launchNetwork) != -1;
 
-const isMatic = launchNetwork => launchNetwork == 'mumbai' || launchNetwork == 'matic';
+const isMatic = launchNetwork => launchNetwork == "mumbai" || launchNetwork == "matic";
 
 const getExplorer = async () => {
   let cid = await hre.getChainId();
@@ -47,12 +47,12 @@ const getMediumGas = async () => {
   return await getGasPrice(80);
 };
 
-const getGasViaZapper = async (network='polygon', type='instant') => {
+const getGasViaZapper = async (network = "polygon", type = "instant") => {
   let reqUrl = `https://api.zapper.fi/v1/gas-price?api_key=96e0cc51-a62e-42ca-acee-910ea7d2a241&network=${network}`;
 
   let res = await got(reqUrl, {json: true});
   return res.body[type];
-}
+};
 
 const getGasViaPolygonscan = async () => {
   let apikey = process.env.POLYGONSCAN_API;
@@ -60,8 +60,8 @@ const getGasViaPolygonscan = async () => {
 
   let res = await got(reqUrl, {json: true});
   // return res.body.result['ProposeGasPrice'];
-  return res.body.result['FastGasPrice'];
-}
+  return res.body.result["FastGasPrice"];
+};
 
 const _getOverrides = async (launchNetwork = false) => {
   let netConfig = hre.config.networks[launchNetwork];
@@ -76,7 +76,7 @@ const _getOverrides = async (launchNetwork = false) => {
       if (gp < 100) gp = 100;
       console.log(getGwei(gp));
 
-      return {gasPrice: getGwei(gp)}
+      return {gasPrice: getGwei(gp)};
     }
     return {};
   }
@@ -128,18 +128,18 @@ const _deployContract = async (name, launchNetwork = false, cArgs = []) => {
   log(`Attempting to deploy ${name} - ${cArgs?.length ? cArgs.join(",") : cArgs}`);
 
   const overridesForEIP1559 = await _getOverrides(launchNetwork);
-  console.log('step1')
+  console.log("step1");
   const factory = await hre.ethers.getContractFactory(name);
-  console.log('step2')
+  console.log("step2");
 
   const contract = await factory.deploy(...cArgs, overridesForEIP1559);
-  console.log('step3')
+  console.log("step3");
 
   await contract.deployTransaction.wait(1);
-  console.log('step4')
+  console.log("step4");
 
   await contract.deployed();
-  console.log('step5')
+  console.log("step5");
 
   log(`\nDeployed ${name} to ${contract.address} on ${launchNetwork} w/ args: ${cArgs.join(",")}`);
   return Promise.resolve({contract: contract, args: cArgs, initialized: false, srcName: name});
