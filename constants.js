@@ -5,5 +5,5 @@ let num = int => {
 };
 
 module.exports = {
-  greeting: "hi"
+  greeting: "hi",
 };
