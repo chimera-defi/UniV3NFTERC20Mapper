@@ -119,7 +119,7 @@ const _verify = async (contract, launchNetwork, cArgs) => {
 };
 
 const _deployContract = async (name, launchNetwork = false, cArgs = []) => {
-  if (typeof cArgs !== "undefined" && (!Array.isArray(cArgs) && Object.keys(cArgs).length > 0)) cArgs = [cArgs];
+  if (typeof cArgs !== "undefined" && !Array.isArray(cArgs) && Object.keys(cArgs).length > 0) cArgs = [cArgs];
   log(`Attempting to deploy ${name} - ${cArgs?.length ? cArgs.join(",") : cArgs}`);
 
   const overridesForEIP1559 = await _getOverrides(launchNetwork);

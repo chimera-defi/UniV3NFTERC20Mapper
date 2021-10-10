@@ -4,7 +4,12 @@ async function main() {
   let {DeployHelper} = require("./deploy_utils.js");
   let dh = new DeployHelper();
   await dh.init();
-  await dh.deployContract("Greeter", "Greeter", constants.greeting);
+  // rinkeby 
+  await dh.deployContract("UniV3NFTERC20Mapper", "UniV3NFTERC20Mapper", ['0x1F98431c8aD98523631AE4a59f267346ea31F984', '0xC36442b4a4522E871399CD717aBDD847Ab11FE88']);
+
+  // deploy smurf erc20 for auto verification
+  await dh.deployContract("ERC20Mintable", "ERC20Mintable", ['smurf', 'smurf']);
+
   await dh.postRun();
 }
 
